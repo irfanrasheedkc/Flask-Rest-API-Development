@@ -1,6 +1,5 @@
 from config import db
 from flask import Flask,jsonify,request
-import uuid
 
 users = db['users']
 app = Flask(__name__)
@@ -9,7 +8,7 @@ app = Flask(__name__)
 def get_all_users():
     try:
         # Retrieve all users from the 'users' collection
-        user_list = list(users.find())
+        user_list = list(users.find({}, {'_id': 0}))
         
         # Return the list of users as JSON
         return jsonify({"users": user_list})
@@ -21,7 +20,7 @@ def get_all_users():
 def get_user(user_id):
     try:
         # Get user data by id
-        user = users.find_one({"_id": user_id})
+        user = users.find_one({"id": user_id})
         
         if user:
             # If the user is found, return the user data as JSON
@@ -33,9 +32,9 @@ def get_user(user_id):
         # Return error
         return jsonify({"message": str(e)}), 500
 
-# Validate user data
+# Define a function to validate user data
 def validate_user_data(user_data):
-    required_fields = ["name", "email", "password"]
+    required_fields = ["id", "name", "email", "password"]
     
     # Check if all required fields are present in the data
     for field in required_fields:
@@ -52,21 +51,20 @@ def create_user():
 
         # Validate the user data
         is_valid, validation_message = validate_user_data(user_data)
-
+        
         if not is_valid:
             return jsonify({"message": f"Invalid user data. {validation_message}"}), 400
 
-        # Generate a unique UUID for the user
-        user_id = str(uuid.uuid4())
-
-        # Add the user ID to the user data
-        user_data["_id"] = user_id
+        # Check if the user with the specified ID already exists
+        existing_user = users.find_one({"id": user_data["id"]})
+        if existing_user:
+            return jsonify({"message": "User with the same ID already exists"}), 409
 
         # Insert the new user into the 'users' collection
         result = users.insert_one(user_data)
-
+        
         # Return the ID of the newly created user
-        return jsonify({"message": "User created", "user_id": user_id}), 201
+        return jsonify({"message": "User created"}), 201
     except Exception as e:
         # Handle any errors that may occur (e.g., database connection issues)
         return jsonify({"message": str(e)}), 500
@@ -78,7 +76,7 @@ def update_user(user_id):
         updated_data = request.get_json()
         
         # Update the user with the specified ID with the new data
-        result = users.update_one({"_id": user_id}, {"$set": updated_data})
+        result = users.update_one({"id": user_id}, {"$set": updated_data})
         
         if result.modified_count == 1:
             return jsonify({"message": "User updated"})
@@ -92,7 +90,7 @@ def update_user(user_id):
 def delete_user(user_id):
     try:
         # Delete the user with the specified ID
-        result = users.delete_one({"_id": user_id})
+        result = users.delete_one({"id": user_id})
         
         if result.deleted_count == 1:
             return jsonify({"message": "User deleted"})
