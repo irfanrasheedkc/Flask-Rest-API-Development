@@ -20,7 +20,7 @@ def get_all_users():
 def get_user(user_id):
     try:
         # Get user data by id
-        user = users.find_one({"id": user_id})
+        user = users.find_one({"id": user_id}, {'_id': 0})
         
         if user:
             # If the user is found, return the user data as JSON
